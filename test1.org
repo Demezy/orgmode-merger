@@ -1,0 +1,7 @@
+#+TODO: INBOX RELEVANT SOMEDAY NOTES CONTENT WAITING PROJECTS QUICK_ACTIONS TODO | DONE TRASH
+* DONE inbox
+* TODO todo
+* TRASH someday
+** TODO someday todo
+
+* INBOX duplicate inbox
