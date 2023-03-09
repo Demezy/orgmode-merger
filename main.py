@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import random
+
 import orgparse as org
 import spacy
-import random
 from orgparse.node import OrgNode
 from tqdm import tqdm
 
@@ -47,8 +48,8 @@ def resolve_same_nodes_conflict(n1: OrgNode, n2: OrgNode) -> list[OrgNode]:
         'These entries seems to be very close. What whould you do?',
         '1) choose first entry',
         '2) choose second entry',
-        '3) add unique tag to both (manual processing)',
-        '4) create new task with both entiries in description (manual processing)',
+        '3) save both',
+        '4) add unique tag to both (manual processing)',
         sep='\n',
     )
     choice = input()
@@ -63,9 +64,8 @@ def resolve_same_nodes_conflict(n1: OrgNode, n2: OrgNode) -> list[OrgNode]:
         return [n1, n2]
     elif choice == '4':
         tag = 'orgmerge' + str(random.randint(1000000, 10000000))
-        # FIXME tags are not added
-        n1.tags.add(tag)
-        n2.tags.add(tag)
+        n1._tags.append(tag)
+        n2._tags.append(tag)
         return [n1, n2]
     return []
 
@@ -80,10 +80,10 @@ def merge_files(filenames: list[str]) -> list[OrgNode]:
         filter(lambda x: x.heading != '' or x.body != '', org_entries)
     )
 
-    # FIXME this is very inefficient and produce to many dups. As temporal fix
-    # set is used, but it breaks tasks with subtasks!
+    # FIXME: this is very inefficient and produce to many dups. As temporal fix
+    # set is used, but it breaks structure => tasks with subtasks!
     merged_entries: set[OrgNode] = set()
-    for in1 in tqdm(range(len(org_entries)), desc="Merge progress"):
+    for in1 in tqdm(range(len(org_entries)), desc='Merge progress'):
         for in2 in range(in1 + 1, len(org_entries)):
             n1 = org_entries[in1]
             n2 = org_entries[in2]
