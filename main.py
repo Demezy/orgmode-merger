@@ -1,99 +1,118 @@
 #!/usr/bin/env python3
 
+import argparse
 import orgparse as org
+import spacy
+import random
+from orgparse.node import OrgNode
+from tqdm import tqdm
 
-# TODO add console argument parsing
-# import argparse
+SIMILARITY_TRASHOLD = 0.7
+nlp = spacy.load('en_core_web_md')
 
 
 # display node
-def print_content(node):
-    print(node)
-    for child in node[1:]:
-        print_content(child)
+def print_content(node: OrgNode):
+    # print(node.heading)
+    # print(node.body)
+    print(str(node), f'tags: {node.tags}')
+    # for child in node[1:]:
+    #     print_content(child)
 
 
-# merge nodes or not
-def are_nodes_same(n1: org.OrgNode, n2: org.OrgNode) -> bool:
+def is_text_same(t1: str, t2: str):
+    s1 = nlp(t1)
+    s2 = nlp(t2)
+    similarity = s1.similarity(s2)
+    if similarity > SIMILARITY_TRASHOLD:
+        print(similarity, 't1:', t1, 't2:', t2)
+
+    return similarity > SIMILARITY_TRASHOLD
+
+
+# check are nodes same or not
+def are_nodes_same(n1: OrgNode, n2: OrgNode) -> bool:
+    # speed up by direct comparing
     if n1.heading == n2.heading and n1.body == n2.body:
         return True
-    return False
+
+    return is_text_same(n1.heading, n2.heading) and is_text_same(
+        n1.body, n2.body
+    )
 
 
-def is_inbox(n: org.OrgNode):
-    # TODO generalize stuff
-    return n.todo == 'INBOX'
+def resolve_same_nodes_conflict(n1: OrgNode, n2: OrgNode) -> list[OrgNode]:
+    print('<<<<<', str(n1), '=====', str(n2), '>>>>>', sep='\n')
+    print(
+        'These entries seems to be very close. What whould you do?',
+        '1) choose first entry',
+        '2) choose second entry',
+        '3) add unique tag to both (manual processing)',
+        '4) create new task with both entiries in description (manual processing)',
+        sep='\n',
+    )
+    choice = input()
+    while choice not in [str(i) for i in range(1, 5)]:
+        print('No such option. Try again')
+        choice = input()
+    if choice == '1':
+        return [n1]
+    elif choice == '2':
+        return [n2]
+    elif choice == '3':
+        return [n1, n2]
+    elif choice == '4':
+        tag = 'orgmerge' + str(random.randint(1000000, 10000000))
+        # FIXME tags are not added
+        n1.tags.add(tag)
+        n2.tags.add(tag)
+        return [n1, n2]
+    return []
 
 
-# # return is merge success
-# def merge_same_nodes(n1: org.OrgNode, n2: org.OrgNode):
-#     if is_inbox(n1):
-#         slave = n1
-#         master = n2
-#     elif is_inbox(n2):
-#         slave = n1
-#         master = n2
-#     else:
-#         return False
-#     print(slave)
-#     print(master)
+# get list of filenames and return merged list of org entries
+def merge_files(filenames: list[str]) -> list[OrgNode]:
+    org_entries: list[OrgNode] = []
+    for filename in filenames:
+        f = org.load(filename)
+        org_entries += f[1:]
+    org_entries = list(
+        filter(lambda x: x.heading != '' or x.body != '', org_entries)
+    )
 
-
-# compare two files
-def find_dups(filename1, filename2) -> tuple[list[str], list[str]]:
-    f1 = org.load(filename1)
-    f2 = org.load(filename2)
-    f1_dups = []
-    f2_dups = []
-
-    for n1 in f1[1:]:
-        for n2 in f2[1:]:
-            if not are_nodes_same(n1, n2):
+    # FIXME this is very inefficient and produce to many dups. As temporal fix
+    # set is used, but it breaks tasks with subtasks!
+    merged_entries: set[OrgNode] = set()
+    for in1 in tqdm(range(len(org_entries)), desc="Merge progress"):
+        for in2 in range(in1 + 1, len(org_entries)):
+            n1 = org_entries[in1]
+            n2 = org_entries[in2]
+            if are_nodes_same(n1, n2):
+                for resolve in resolve_same_nodes_conflict(n1, n2):
+                    merged_entries.add(resolve)
                 continue
-            if is_inbox(n1):
-                f1_dups.append(str(n1))
-            elif is_inbox(n2):
-                f2_dups.append(str(n2))
-            elif (
-                n1.todo == n2.todo
-                and n1.scheduled == n2.scheduled
-                and n1.clock == n2.clock
-                and n1.deadline == n2.deadline
-            ):
-                f1_dups.append(str(n2))
+            merged_entries.add(n1)
+            merged_entries.add(n2)
 
-    return (f1_dups, f2_dups)
+    return list(merged_entries)
 
 
-# delete dups from file
-def delete_dups(src: str, dst: str, dups: list[str]):
-    with open(src, 'r') as f:
-        content = f.read()
-
-    source_content = content
-    # print(content)
-    # print('-' * 5)
-    for d in dups:
-        # print(d)
-        content = content.replace(d, '')
-    # print('-' * 5)
-    # print(content)
-    print(source_content == content)
-    if source_content != content:
-        with open(dst, 'w') as f:
-            f.write(content)
-
-
-def run(filename1, filename2):
-    dup1, dup2 = find_dups(filename1, filename2)
-    delete_dups(filename1, 'out-' + filename1, dup1)
-    # print('=' * 5)
-    delete_dups(filename2, 'out-' + filename2, dup2)
+def run(filenames: list[str]):
+    print('ready to go!')
+    nodes = merge_files(filenames)
+    for n in nodes:
+        print_content(n)
 
 
 def main():
-
-    run('test1.org', 'test2.org')
+    parser = argparse.ArgumentParser(
+        description='Merge Orgmode files. Delete similar entries.'
+    )
+    parser.add_argument(
+        'filenames', nargs='+', help='input orgmode files to merge'
+    )
+    args = parser.parse_args()
+    run(args.filenames)
 
 
 if __name__ == '__main__':
