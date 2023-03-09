@@ -8,27 +8,23 @@ import spacy
 from orgparse.node import OrgNode
 from tqdm import tqdm
 
-SIMILARITY_TRASHOLD = 0.7
+SIMILARITY_TRESHOLD = 0.7
 nlp = spacy.load('en_core_web_md')
 
 
 # display node
 def print_content(node: OrgNode):
-    # print(node.heading)
-    # print(node.body)
     print(str(node), f'tags: {node.tags}')
-    # for child in node[1:]:
-    #     print_content(child)
 
 
 def is_text_same(t1: str, t2: str):
     s1 = nlp(t1)
     s2 = nlp(t2)
     similarity = s1.similarity(s2)
-    if similarity > SIMILARITY_TRASHOLD:
+    if similarity > SIMILARITY_TRESHOLD:
         print(similarity, 't1:', t1, 't2:', t2)
 
-    return similarity > SIMILARITY_TRASHOLD
+    return similarity > SIMILARITY_TRESHOLD
 
 
 # check are nodes same or not
@@ -81,7 +77,7 @@ def merge_files(filenames: list[str]) -> list[OrgNode]:
     )
 
     # FIXME: this is very inefficient and produce to many dups. As temporal fix
-    # set is used, but it breaks structure => tasks with subtasks!
+    # set is used, but it breaks original structure => tasks mixed with subtasks!
     merged_entries: set[OrgNode] = set()
     for in1 in tqdm(range(len(org_entries)), desc='Merge progress'):
         for in2 in range(in1 + 1, len(org_entries)):
