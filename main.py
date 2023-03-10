@@ -44,8 +44,10 @@ def main():
         nlp_enabled=not args.disable_nlp,
         headless_policy=args.headless_policy,
     )
-
-    merger.run(args.filenames)
+    merged = merger.run(args.filenames)
+    print(merged)
+    with open('orgmerge_output.org', 'w') as dst:
+        dst.write("\n".join(merged))
 
 
 if __name__ == '__main__':

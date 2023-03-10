@@ -98,7 +98,5 @@ class OrgMerger:
 
         return list(merged_entries)
 
-    def run(self, filenames: list[str]):
-        nodes = self.merge_files(filenames)
-        for n in nodes:
-            self.print_content(n)
+    def run(self, filenames: list[str]) -> list[str]:
+        return list(map(str, self.merge_files(filenames)))
