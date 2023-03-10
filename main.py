@@ -8,7 +8,9 @@ import spacy
 from orgparse.node import OrgNode
 from tqdm import tqdm
 
-SIMILARITY_TRESHOLD = 0.7
+SIMILARITY_TRESHOLD: float = 0.7
+NLP_ENABLED: bool = True
+HEADLESS_POLICY: str | None = None
 nlp = spacy.load('en_core_web_md')
 
 
@@ -33,22 +35,27 @@ def are_nodes_same(n1: OrgNode, n2: OrgNode) -> bool:
     if n1.heading == n2.heading and n1.body == n2.body:
         return True
 
-    return is_text_same(n1.heading, n2.heading) and is_text_same(
-        n1.body, n2.body
+    return (
+        NLP_ENABLED
+        and is_text_same(n1.heading, n2.heading)
+        and is_text_same(n1.body, n2.body)
     )
 
 
 def resolve_same_nodes_conflict(n1: OrgNode, n2: OrgNode) -> list[OrgNode]:
-    print('<<<<<', str(n1), '=====', str(n2), '>>>>>', sep='\n')
-    print(
-        'These entries seems to be very close. What whould you do?',
-        '1) choose first entry',
-        '2) choose second entry',
-        '3) save both',
-        '4) add unique tag to both (manual processing)',
-        sep='\n',
-    )
-    choice = input()
+    if HEADLESS_POLICY:
+        choice = HEADLESS_POLICY
+    else:
+        print('<<<<<', str(n1), '=====', str(n2), '>>>>>', sep='\n')
+        print(
+            'These entries seems to be very close. What whould you do?',
+            '1) choose first entry',
+            '2) choose second entry',
+            '3) save both',
+            '4) add unique tag to both (manual processing)',
+            sep='\n',
+        )
+        choice = input()
     while choice not in [str(i) for i in range(1, 5)]:
         print('No such option. Try again')
         choice = input()
@@ -102,12 +109,42 @@ def run(filenames: list[str]):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Merge Orgmode files. Delete similar entries.'
+        prog='orgmode-merger',
+        description='Merge Orgmode files. Delete similar entries.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        '--disable_nlp',
+        action='store_true',
+        help='Disable semantical duplicate search',
+        required=False,
+    )
+    parser.add_argument(
+        '--headless_policy',
+        nargs='?',
+        type=str,
+        # TODO: add here hint from interactive part
+        help='Default choice during interactive part',
+    )
+    parser.add_argument(
+        '-s',
+        '--similarity_treshold',
+        nargs='?',
+        type=float,
+        help='treshold to assume that tasks are similar',
+        default=0.7,
     )
     parser.add_argument(
         'filenames', nargs='+', help='input orgmode files to merge'
     )
     args = parser.parse_args()
+
+    global HEADLESS_POLICY, NLP_ENABLED, SIMILARITY_TRESHOLD
+    HEADLESS_POLICY = args.headless_policy
+
+    if args.disable_nlp:
+        NLP_ENABLED = False
+    SIMILARITY_TRESHOLD = args.similarity_treshold
     run(args.filenames)
 
 
