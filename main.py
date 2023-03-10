@@ -4,41 +4,13 @@ import argparse
 import random
 
 import orgparse as org
-import spacy
 from orgparse.node import OrgNode
-from spacy.language import Language
 from tqdm import tqdm
 
-SIMILARITY_TRESHOLD: float = 0.7
+from nlp import LazyNlp
+
 NLP_ENABLED: bool = True
 HEADLESS_POLICY: str | None = None
-
-
-class LazyNlp:
-    _nlp: Language | None = None
-    _nlp_type: str
-
-    def __init__(self, nlp_type: str) -> None:
-        self._nlp_type = nlp_type
-
-    def get_nlp(self):
-        if self._nlp is None:
-            self._nlp = spacy.load(self._nlp_type)
-        return self._nlp
-
-    @property
-    def nlp(self):
-        return self.get_nlp()
-
-    def is_text_same(self, t1: str, t2: str):
-        s1 = self.nlp(t1)
-        s2 = self.nlp(t2)
-        similarity = s1.similarity(s2)
-        if similarity > SIMILARITY_TRESHOLD:
-            print(similarity, 't1:', t1, 't2:', t2)
-        return similarity > SIMILARITY_TRESHOLD
-
-
 
 
 # display node
@@ -91,7 +63,7 @@ def resolve_same_nodes_conflict(n1: OrgNode, n2: OrgNode) -> list[OrgNode]:
 
 
 # get list of filenames and return merged list of org entries
-def merge_files(nlp: LazyNlp,filenames: list[str]) -> list[OrgNode]:
+def merge_files(nlp: LazyNlp, filenames: list[str]) -> list[OrgNode]:
     org_entries: list[OrgNode] = []
     for filename in filenames:
         f = org.load(filename)
@@ -117,9 +89,9 @@ def merge_files(nlp: LazyNlp,filenames: list[str]) -> list[OrgNode]:
     return list(merged_entries)
 
 
-def run(filenames: list[str]):
+def run(treshold: float, filenames: list[str]):
     print('ready to go!')
-    nlp = LazyNlp('en_core_web_md')
+    nlp = LazyNlp('en_core_web_md', treshold=treshold)
     nodes = merge_files(nlp, filenames)
     for n in nodes:
         print_content(n)
@@ -157,14 +129,13 @@ def main():
     )
     args = parser.parse_args()
 
-    global HEADLESS_POLICY, NLP_ENABLED, SIMILARITY_TRESHOLD
+    global HEADLESS_POLICY, NLP_ENABLED
     HEADLESS_POLICY = args.headless_policy
 
     if args.disable_nlp:
         NLP_ENABLED = False
-    SIMILARITY_TRESHOLD = args.similarity_treshold
 
-    run(args.filenames)
+    run(args.similarity_treshold, args.filenames)
 
 
 if __name__ == '__main__':
