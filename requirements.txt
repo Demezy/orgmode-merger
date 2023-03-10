@@ -1,1 +1,4 @@
-orgparse==0.3.2
+orgparse
+spacy
+tqdm
+
